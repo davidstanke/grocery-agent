@@ -1,0 +1,9 @@
+description = "Clean up temporary directories and workspace context."
+prompt = """
+Execute the following workspace cleanup workflow as the orchestrator:
+1. Identify any temporary directories used during planning in `.agentfarm/` and use `run_shell_command` to safely remove them using `rm -rf .agentfarm/`.
+2. Check for any other untracked or dirty files in the workspace that might have been left over from failed planning tasks by running `git status --porcelain`.
+3. If there are untracked files or modifications outside of expected ignored paths, explicitly present them to the user and ask if they would like to clean them up.
+4. If approved, run `git checkout -- .` and `git clean -fd` to restore a pristine state, or remove specific leftover files as requested by the user.
+5. Report back that the workspace context is clean and ready for the next task.
+"""

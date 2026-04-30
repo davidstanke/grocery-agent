@@ -1,0 +1,63 @@
+name: Issue Triage
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ vars.GCP_SA_GITHUB_ACTIONS }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCP_WI_PROVIDER_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+
+      - name: Link Hub Extension
+        run: |
+          mkdir -p ~/.gemini .agentfarm/
+          echo '{"projects":{}}' > ~/.gemini/projects.json
+          echo "${{ steps.app-token.outputs.token }}" | gemini extensions link ./extensions/agent-farm --consent
+
+      - name: Run Triage Command
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GCP_VERTEX_LOCATION || 'global' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_VERTEX_PROJECT_ID || vars.GCP_PROJECT_ID }}
+        run: |
+          gemini -p "/farm:triage ${{ github.repository }} ${{ github.event.issue.number }}" -y

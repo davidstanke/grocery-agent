@@ -1,0 +1,67 @@
+name: Librarian Proactive Audit
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  run-librarian-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ vars.GCP_SA_GITHUB_ACTIONS }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCP_WI_PROVIDER_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+
+      - name: Link Extension
+        run: |
+          mkdir -p ~/.gemini .agentfarm/
+          echo '{"projects":{}}' > ~/.gemini/projects.json
+          gemini --version
+          echo "${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}" | gemini extensions link ./extensions/agent-farm --consent
+
+      - name: Run Librarian Agent
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GCP_VERTEX_LOCATION || 'global' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_VERTEX_PROJECT_ID || vars.GCP_PROJECT_ID }}
+        run: |
+          LAST_WEEK_REV=$(git rev-list -n 1 --before="7 days ago" HEAD || git rev-parse HEAD~1 || git rev-parse HEAD)
+          
+          if [ "$LAST_WEEK_REV" = "$(git rev-parse HEAD)" ]; then
+            CHANGED_FILES="No commits found in the last 7 days."
+          else
+            CHANGED_FILES=$(git diff --name-only $LAST_WEEK_REV..HEAD)
+          fi
+
+          PROMPT="CRITICAL DIRECTIVE: You MUST delegate this task to the 'librarian' subagent tool immediately. Do not attempt to complete it yourself. Pass this exact task to the 'librarian' tool: A scheduled weekly audit was triggered. Perform a proactive audit of the following files that were changed in the last 7 days to detect any drift from the implemented code or missing standards (e.g., Makefiles):
+          
+          $CHANGED_FILES
+          
+          Create a central 'Weekly Audit Report' issue summarizing your findings. Create a branch and a Pull Request if direct documentation or standardization fixes are needed. If you find architectural misalignment or complex issues, create new sub-issues for the PM/TPM (labeled 'status: needs-pm' or 'status: needs-tpm') and link them within the central 'Weekly Audit Report' issue."
+          
+          gemini -p "$PROMPT" -y

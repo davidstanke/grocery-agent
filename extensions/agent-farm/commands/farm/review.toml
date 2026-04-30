@@ -1,0 +1,17 @@
+description = "Pull down Pull Request reviews and facilitate a collaborative session to address them."
+prompt = """
+Execute the following PR review collaboration workflow as the orchestrator:
+1. Parse the input `{{args}}` to identify the Pull Request number. Assume the current repository unless one is provided.
+2. Use `mcp_github_get_pull_request_reviews` and `mcp_github_get_pull_request_comments` to fetch all reviews and inline comments for the specified PR.
+3. Synthesize the feedback:
+   - Group the comments by file and reviewer.
+   - Highlight any specific requested changes, rejections, or critical suggestions.
+4. Present this synthesized summary of the PR reviews to the user in a clear, structured format.
+5. Facilitate a collaborative discussion:
+   - Ask the user which pieces of feedback they agree with and which they disagree with.
+   - For feedback they agree with, discuss the technical approach to implement the requested changes.
+6. Once an approach is agreed upon for the actionable feedback, implement the agreed-upon code changes locally.
+   - Use `replace`, `write_file`, or `run_shell_command` as appropriate to make the updates.
+   - Validate the changes by running local linters, type-checkers, or tests if applicable.
+7. After the changes are successfully implemented and verified locally, ask the user if they would like to commit and push the updates to the PR's branch.
+"""

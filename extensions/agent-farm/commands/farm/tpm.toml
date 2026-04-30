@@ -1,0 +1,25 @@
+description = "Smart TPM assistant to draft or refine a technical implementation plan."
+prompt = """
+Execute the following state-aware TPM workflow as the orchestrator:
+1. Ensure the user provided a numeric ID `{{args}}`. If missing, ask the user to provide an issue ID.
+2. Use `mcp_github_get_issue` to fetch the issue from the current repo.
+3. Check the status label of the issue.
+
+4. IF THE STATUS IS `needs-tpm` (Drafting the Plan):
+   - Note the PM's specification from the issue body.
+   - Use the `invoke_agent` tool to call the `codebase_investigator` sub-agent to analyze the architecture of the current repository (`.`).
+   - Pass the PM's specification and the codebase analysis to the `tpm` sub-agent using the `invoke_agent` tool, instructing it to: "Formulate a strict, step-by-step Technical Implementation Plan enforcing TDD (QA tests first, then Engineer implements)."
+   - Wait for the `tpm` sub-agent to finish and return the plan.
+   - Use `mcp_github_update_issue` to update the body of Issue #{{args}} by appending the generated plan to the existing issue body, AND update the label from `status: needs-tpm` to `status: tpm-review`.
+   - Tell the user the technical plan is drafted and ready for review by running `/farm:tpm {{args}}` again.
+
+5. IF THE STATUS IS `tpm-review` (Refining the Plan):
+   - First, activate the `tech-spec` skill using the `activate_skill` tool to understand the required format. Then present the current technical plan to the user in this main chat.
+   - Facilitate an interactive architectural Q&A to refine the plan, ensuring all revisions adhere strictly to the `tech-spec` skill format.
+   - After the user is satisfied, explicitly ask: "Are you ready to approve this technical plan and send it to QA for headless CI/CD execution?"
+   - If the user explicitly says yes/approves, use `mcp_github_update_issue` to update the issue body with any revisions (ensuring the original product spec is preserved), replace the `status: tpm-review` label with `status: needs-qa`.
+   - Explicitly inform the user that the headless QA and Engineer agents will now pick up the PR automatically via GitHub Actions.
+
+6. IF THE STATUS IS ANYTHING ELSE:
+   - Warn the user that the issue is in a different phase and provide a tactical push (e.g., "This issue is currently waiting for QA execution. You can check the dashboard with `/farm:status`").
+"""

@@ -1,0 +1,312 @@
+name: Agent Orchestrator
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  evaluate-context:
+    runs-on: ubuntu-latest
+    outputs:
+      allow_agents: "${{ !contains(github.event.issue.labels.*.name, 'good-first-issue') && !contains(github.event.issue.labels.*.name, 'easy-issue') && !contains(github.event.issue.labels.*.name, 'development') && !contains(github.event.issue.labels.*.name, 'hold') }}"
+      is_doc: "${{ contains(github.event.issue.labels.*.name, 'type: doc') }}"
+      is_platform: "${{ contains(github.event.issue.labels.*.name, 'type: platform/devops') }}"
+    steps:
+      - run: echo "Context evaluated. allow_agents=${{ steps.eval.outputs.allow_agents }}"
+
+  run-qa:
+    needs: evaluate-context
+    if: "needs.evaluate-context.outputs.allow_agents == 'true' && needs.evaluate-context.outputs.is_doc == 'false' && needs.evaluate-context.outputs.is_platform == 'false' && github.event.label.name == 'status: needs-qa'"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+
+
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ vars.GCP_SA_GITHUB_ACTIONS }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCP_WI_PROVIDER_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup UV (Python)
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+
+      - name: Link Extension
+        run: |
+          mkdir -p ~/.gemini .agentfarm/
+          echo '{"projects":{}}' > ~/.gemini/projects.json
+          gemini --version
+          echo "${{ steps.app-token.outputs.token }}" | gemini extensions link ./extensions/agent-farm --consent
+
+      - name: Debug GitHub Token Access
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "Testing API access to #${{ github.repository }} issue #${{ github.event.issue.number }}..."
+          curl -s -w "\nHTTP_STATUS:%{http_code}\n" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}"
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "agent-farm[bot]"
+          git config --global user.email "agent-farm[bot]@users.noreply.github.com"
+
+      - name: Run QA Agent
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GCP_VERTEX_LOCATION || 'global' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_VERTEX_PROJECT_ID || vars.GCP_PROJECT_ID }}
+        run: |
+          PROMPT="CRITICAL DIRECTIVE: You MUST delegate this task to the 'qa' subagent tool immediately. Do not attempt to complete it yourself. Pass this exact task to the 'qa' tool: For repository (owner/repo: ${{ github.repository }}), check if a Pull Request already exists for this issue. If it does, use your tools to read all PR review comments and you MUST address this feedback. Then, create a new branch, write failing tests for issue #${{ github.event.issue.number }} in repository (owner/repo: ${{ github.repository }}), and create a draft PR in repository (owner/repo: ${{ github.repository }})."
+
+
+          gemini -p "$PROMPT" -y
+
+  run-engineer:
+    needs: evaluate-context
+    if: "needs.evaluate-context.outputs.allow_agents == 'true' && needs.evaluate-context.outputs.is_doc == 'false' && needs.evaluate-context.outputs.is_platform == 'false' && github.event.label.name == 'status: needs-engineer'"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+
+
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ vars.GCP_SA_GITHUB_ACTIONS }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCP_WI_PROVIDER_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup UV (Python)
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+
+      - name: Link Extension
+        run: |
+          mkdir -p ~/.gemini .agentfarm/
+          echo '{"projects":{}}' > ~/.gemini/projects.json
+          gemini --version
+          echo "${{ steps.app-token.outputs.token }}" | gemini extensions link ./extensions/agent-farm --consent
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "agent-farm[bot]"
+          git config --global user.email "agent-farm[bot]@users.noreply.github.com"
+
+      - name: Run Engineer Agent
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GCP_VERTEX_LOCATION || 'global' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_VERTEX_PROJECT_ID || vars.GCP_PROJECT_ID }}
+        run: |
+          PROMPT="CRITICAL DIRECTIVE: You MUST delegate this task to the 'engineer' subagent tool immediately. Do not attempt to complete it yourself. Pass this exact task to the 'engineer' tool: For repository (owner/repo: ${{ github.repository }}), check if a Pull Request already exists for this issue. If it does, use your tools to read all PR review comments and you MUST address this feedback. Then, check out the PR branch in repository (owner/repo: ${{ github.repository }}) that corresponds to issue #${{ github.event.issue.number }} in repository (owner/repo: ${{ github.repository }}), implement the feature to make tests pass, and update the PR."
+
+
+          gemini -p "$PROMPT" -y
+
+  run-platform:
+    needs: evaluate-context
+    if: "needs.evaluate-context.outputs.allow_agents == 'true' && needs.evaluate-context.outputs.is_platform == 'true' && (github.event.label.name == 'status: needs-platform' || github.event.label.name == 'status: needs-qa')"
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ vars.GCP_SA_GITHUB_ACTIONS }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCP_WI_PROVIDER_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup UV (Python)
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+
+      - name: Link Extension
+        run: |
+          mkdir -p ~/.gemini .agentfarm/
+          echo '{"projects":{}}' > ~/.gemini/projects.json
+          gemini --version
+          echo "${{ steps.app-token.outputs.token }}" | gemini extensions link ./extensions/agent-farm --consent
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "agent-farm[bot]"
+          git config --global user.email "agent-farm[bot]@users.noreply.github.com"
+
+      - name: Run Platform Agent
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GCP_VERTEX_LOCATION || 'global' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_VERTEX_PROJECT_ID || vars.GCP_PROJECT_ID }}
+        run: |
+          PROMPT="CRITICAL DIRECTIVE: You MUST delegate this task to the 'platform' subagent tool immediately. Do not attempt to complete it yourself. Pass this exact task to the 'platform' tool: For repository ${{ github.repository }}, review the TPM plan for issue #${{ github.event.issue.number }}, execute any infrastructure changes required, and update the PR and issue state accordingly. Remove the 'status: needs-platform' label from the issue."
+
+
+          gemini -p "$PROMPT" -y
+
+  run-librarian:
+    needs: evaluate-context
+    if: "needs.evaluate-context.outputs.allow_agents == 'true' && (github.event.label.name == 'status: needs-librarian' || (github.event.label.name == 'status: needs-qa' && needs.evaluate-context.outputs.is_doc == 'true'))"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+
+
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ vars.GCP_SA_GITHUB_ACTIONS }}@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCP_WI_PROVIDER_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup UV (Python)
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+
+      - name: Link Extension
+        run: |
+          mkdir -p ~/.gemini .agentfarm/
+          echo '{"projects":{}}' > ~/.gemini/projects.json
+          gemini --version
+          echo "${{ steps.app-token.outputs.token }}" | gemini extensions link ./extensions/agent-farm --consent
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "agent-farm[bot]"
+          git config --global user.email "agent-farm[bot]@users.noreply.github.com"
+
+      - name: Run Librarian Agent
+        env:
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GOOGLE_GENAI_USE_VERTEXAI: 'true'
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GCP_VERTEX_LOCATION || 'global' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_VERTEX_PROJECT_ID || vars.GCP_PROJECT_ID }}
+        run: |
+          PROMPT="CRITICAL DIRECTIVE: You MUST delegate this task to the 'librarian' subagent tool immediately. Do not attempt to complete it yourself. Pass this exact task to the 'librarian' tool: For repository (owner/repo: ${{ github.repository }}), update documentation for issue #${{ github.event.issue.number }} in repository (owner/repo: ${{ github.repository }}) and enforce project hygiene."
+
+
+          gemini -p "$PROMPT" -y
+
+

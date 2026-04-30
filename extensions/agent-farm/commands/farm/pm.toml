@@ -1,0 +1,18 @@
+description = "Smart PM assistant to draft or refine a feature specification."
+prompt = """
+Execute the following state-aware PM workflow as the orchestrator:
+1. Parse the input `{{args}}`. Determine if it is a numeric ID (an existing issue) or text (a new feature idea).
+2. IF IT IS TEXT (New Feature):
+   - Use the `invoke_agent` tool to call the `codebase_investigator` sub-agent to gather architectural context on the current repository (`.`). 
+   - Pass the gathered context and user request to the `pm` sub-agent using the `invoke_agent` tool to autonomously draft a feature specification in memory (NO physical files like `spec.md`).
+   - Use `mcp_github_create_issue` to create an issue in the current repository with the in-memory draft and apply the `status: pm-review` label.
+   - Tell the user the draft is complete and ready for refinement by running `/farm:pm <issue_number>`.
+
+3. IF IT IS A NUMERIC ID (Existing Issue):
+   - Use `mcp_github_get_issue` to fetch the issue from the current repo.
+   - Check the label. If it is NOT `status: pm-review`, warn the user that this issue is currently in another phase and suggest the correct command (e.g., `/farm:tpm`).
+   - If it IS `status: pm-review`: First, activate the `spec` skill using the `activate_skill` tool to understand the required format. Then present the current specification to the user.
+   - Facilitate a direct, interactive review of the spec in this main chat, ensuring all revisions adhere strictly to the `spec` skill format.
+   - After the user is satisfied, explicitly ask: "Are you ready to approve this specification and send it to the TPM phase?"
+   - If the user explicitly says yes/approves, use `mcp_github_update_issue` to update the issue body with any revisions, replace the `status: pm-review` label with `status: needs-tpm`, and announce that it has advanced.
+"""

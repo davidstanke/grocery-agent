@@ -1,0 +1,14 @@
+description = "Automatically triage a new issue and apply the correct Agent Farm labels."
+prompt = """
+Execute the following Issue Triage workflow:
+1. Parse the input `{{args}}` to identify the Issue number. Assume the current repository unless one is provided.
+2. Use `mcp_github_get_issue` to fetch the issue details (title, body).
+3. Analyze the issue to determine its category:
+   - If it describes a defect or error, it is a `type: bug`.
+   - If it requests new functionality, it is a `type: feature`.
+   - If it only requires documentation updates, it is a `type: doc`.
+   - If it relates to CI/CD, infrastructure, or deployment, it is a `type: platform/devops`.
+4. Determine the starting state. Under the Agent Farm workflow, all new feature/bug issues start at `status: pm-review`.
+5. Use `mcp_github_update_issue` to apply the determined `type:*` label and the `status: pm-review` label to the issue.
+6. (Optional) Add a friendly comment using `mcp_github_add_issue_comment` welcoming the user and stating that the PM agent will review it shortly.
+"""

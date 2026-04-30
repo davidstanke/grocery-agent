@@ -1,0 +1,8 @@
+[project]
+name = "live-api-agent"
+version = "0.1.0"
+description = "Live API Agent Prototype"
+
+[tool.agents-cli]
+agent_type = "adk"
+prototype = true

@@ -1,0 +1,21 @@
+description = "Perform an automated, inline code review of a Pull Request."
+prompt = """
+Execute the following automated PR Code Review workflow:
+1. Parse the input `{{args}}` to identify the Pull Request number and repository.
+2. Use `mcp_github_get_pull_request` to find the issue linked to this PR (e.g., from the branch name or PR body). 
+3. Use `mcp_github_get_issue` to fetch the linked issue's labels. Identify the current state (`status: needs-qa` or `status: needs-engineer`) and the current iteration count (e.g., `iteration:1`, `iteration:2`). If no iteration label exists, assume it is iteration 0.
+4. Use `mcp_github_get_pull_request_files` to analyze the changes.
+5. Review the code for:
+   - Correctness and logic errors
+   - Security vulnerabilities
+   - Performance bottlenecks
+   - Adherence to the repository's style and conventions
+6. Use `mcp_github_create_pull_request_review` to submit an inline review with comments on specific lines of code that need improvement. Focus only on actionable, high-signal feedback.
+7. Determine the next step based on your review:
+   - IF the code looks good (APPROVE):
+     - Use `mcp_github_update_issue` to advance the state. If currently `needs-qa`, change to `needs-engineer`. If currently `needs-engineer`, change to `ready-to-merge`. Remove any `iteration:X` labels.
+   - IF the code needs changes (REQUEST_CHANGES):
+     - Check the iteration count.
+     - IF iteration < 3: Use `mcp_github_update_issue` to increment the `iteration:X` label AND toggle the current status label (i.e., remove the current `needs-qa` or `needs-engineer` label, then re-add it). This toggle is CRITICAL as it re-triggers the CI/CD pipeline to process your feedback.
+     - IF iteration >= 3: The PR is stuck in a loop. Use `mcp_github_update_issue` to remove the current status label and add `status: review-stuck` to flag it for human intervention.
+"""
