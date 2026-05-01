@@ -14,8 +14,7 @@ seed:
 
 test-mcp: seed
 	@echo "Running MCP tests..."
-	python3 -m pytest tests/test_mcp_server.py
-
+	cd sku-db && uv run pytest ../tests/test_mcp_server.py
 test: seed
 	@echo "Running tests..."
 	bash tests/test_scaffold_live_api.sh
