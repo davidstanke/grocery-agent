@@ -8,9 +8,14 @@ from google.adk.tools.mcp_tool import McpToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from mcp import StdioServerParameters
 import google.auth
+from google.auth.exceptions import DefaultCredentialsError
 
-_, project_id = google.auth.default()
-os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+try:
+    _, project_id = google.auth.default()
+except DefaultCredentialsError:
+    project_id = "test-project"
+
+os.environ["GOOGLE_CLOUD_PROJECT"] = project_id or "test-project"
 os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
 
