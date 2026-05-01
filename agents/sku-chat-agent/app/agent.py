@@ -44,7 +44,7 @@ root_agent = Agent(
 
 app = App(
     root_agent=root_agent,
-    name="sku_chat_app",
+    name="app",
 )
 
 if __name__ == "__main__":

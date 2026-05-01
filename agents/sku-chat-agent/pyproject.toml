@@ -59,7 +59,7 @@ known-first-party = ["app", "frontend"]
 # See: https://docs.astral.sh/ty/
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.12"
 
 [tool.ty.src]
 exclude = [".venv/**"]
@@ -90,7 +90,7 @@ pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app","frontend"]
+packages = ["app"]
 
 [tool.agents-cli]
 # Generation metadata - enables CLI commands to understand project context
@@ -99,6 +99,7 @@ name = "sku-chat-agent"
 description = "ReAct agent with A2A protocol [experimental]"
 base_template = "adk_a2a"
 agent_directory = "app"
+deployment_target = "agent_runtime"
 
 # Generation context
 generated_at = "2026-05-01T17:28:07.716361+00:00"
@@ -106,7 +107,7 @@ acli_version = "0.1.2"
 
 [tool.agents-cli.create_params]
 # Parameters used during project creation
-deployment_target = "none"
+deployment_target = "agent_runtime"
 session_type = "in_memory"
 cicd_runner = "skip"
 include_data_ingestion = false
