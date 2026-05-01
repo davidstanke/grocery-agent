@@ -72,5 +72,11 @@ def query_products_by_price(min_price: float = 0.0, max_price: float = None) -> 
         return json.dumps([])
 
 if __name__ == "__main__":
-    # Ensure standard output strictly reserved for MCP protocol
-    mcp.run(transport='stdio')
+    if os.environ.get("MCP_TRANSPORT") == "sse":
+        import uvicorn
+        port = int(os.environ.get("PORT", "8080"))
+        logger.info(f"Starting MCP SSE server on port {port}")
+        uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=port)
+    else:
+        # Ensure standard output strictly reserved for MCP protocol
+        mcp.run(transport='stdio')
