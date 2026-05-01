@@ -21,15 +21,27 @@ def test_agent_intent_search_products(mock_genai_client, mock_mcp_toolset):
     
     # Mock the LLM client to return a mock response with a tool call
     mock_client_instance = mock_genai_client.return_value
-    mock_response = MagicMock()
-    mock_function_call = MagicMock()
-    mock_function_call.name = "search_products"
-    mock_function_call.args = {"query": "apples"}
-    mock_part = MagicMock()
-    mock_part.function_call = mock_function_call
-    mock_part.text = None
-    mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
-    mock_client_instance.models.generate_content.return_value = mock_response
+    from google.genai import types
+    mock_response = types.GenerateContentResponse(
+        candidates=[
+            types.Candidate(
+                content=types.Content(
+                    parts=[
+                        types.Part(
+                            function_call=types.FunctionCall(
+                                name="search_products",
+                                args={"query": "apples"}
+                            )
+                        )
+                    ]
+                )
+            )
+        ]
+    )
+    from unittest.mock import AsyncMock
+    mock_aio = MagicMock()
+    mock_aio.models.generate_content = AsyncMock(return_value=mock_response)
+    mock_client_instance.aio = mock_aio
 
     # 2. Assert agent has the McpToolset configured
     # Right now this will fail because app.agent.py doesn't use McpToolset
@@ -59,7 +71,7 @@ def test_agent_intent_search_products(mock_genai_client, mock_mcp_toolset):
     )
     
     # Assert that generate_content was called (LLM was invoked)
-    assert mock_client_instance.models.generate_content.called
+    assert mock_client_instance.aio.models.generate_content.called
     
     # If the LLM returned a tool call for search_products, the runner should have yielded a tool call event
     tool_call_events = [e for e in events if getattr(e, 'tool_call', None) is not None or getattr(e, 'function_call', None) is not None or (getattr(e, 'content', None) and any(getattr(p, 'function_call', None) for p in e.content.parts))]
