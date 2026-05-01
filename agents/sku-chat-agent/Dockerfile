@@ -18,11 +18,14 @@ RUN pip install --no-cache-dir uv==0.8.13
 
 WORKDIR /code
 
-COPY ./pyproject.toml ./README.md ./uv.lock* ./
+COPY ./agents/sku-chat-agent/pyproject.toml ./agents/sku-chat-agent/README.md ./agents/sku-chat-agent/uv.lock* ./
 
-COPY ./app ./app
+COPY ./agents/sku-chat-agent/app ./app
+COPY ./sku-db ./sku-db
 
 RUN uv sync --frozen
+
+ENV SKU_DB_SERVER_PATH=/code/sku-db/server.py
 
 ARG COMMIT_SHA=""
 ENV COMMIT_SHA=${COMMIT_SHA}

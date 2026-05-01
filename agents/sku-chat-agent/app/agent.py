@@ -14,7 +14,7 @@ os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
 os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
 
-server_py_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../sku-db/server.py"))
+server_py_path = os.environ.get("SKU_DB_SERVER_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../sku-db/server.py")))
 
 mcp_toolset = McpToolset(
     connection_params=StdioConnectionParams(

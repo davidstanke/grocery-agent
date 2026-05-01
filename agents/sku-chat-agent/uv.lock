@@ -659,6 +659,9 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+a2a = [
+    { name = "a2a-sdk" },
+]
 eval = [
     { name = "gepa" },
     { name = "google-cloud-aiplatform", extra = ["evaluation"] },
@@ -2992,8 +2995,9 @@ source = { editable = "." }
 dependencies = [
     { name = "a2a-sdk" },
     { name = "gcsfs" },
-    { name = "google-adk" },
+    { name = "google-adk", extra = ["a2a"] },
     { name = "google-cloud-logging" },
+    { name = "mcp" },
     { name = "nest-asyncio" },
     { name = "opentelemetry-instrumentation-google-genai" },
 ]
@@ -3020,9 +3024,10 @@ requires-dist = [
     { name = "a2a-sdk", specifier = "~=0.3.22" },
     { name = "codespell", marker = "extra == 'lint'", specifier = ">=2.2.0,<3.0.0" },
     { name = "gcsfs", specifier = ">=2024.11.0" },
-    { name = "google-adk", specifier = ">=1.27.0,<2.0.0" },
+    { name = "google-adk", extras = ["a2a"], specifier = ">=1.27.0,<2.0.0" },
     { name = "google-adk", extras = ["eval"], marker = "extra == 'eval'", specifier = ">=1.15.0,<2.0.0" },
     { name = "google-cloud-logging", specifier = ">=3.12.0,<4.0.0" },
+    { name = "mcp" },
     { name = "nest-asyncio", specifier = ">=1.6.0,<2.0.0" },
     { name = "opentelemetry-instrumentation-google-genai", specifier = ">=0.1.0,<1.0.0" },
     { name = "ruff", marker = "extra == 'lint'", specifier = ">=0.4.6,<1.0.0" },
