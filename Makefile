@@ -1,4 +1,4 @@
-.PHONY: install dev test lint seed
+.PHONY: install dev test lint seed test-mcp
 
 install:
 	@echo "Installing dependencies..."
@@ -12,6 +12,9 @@ seed:
 	@echo "Seeding SKU database..."
 	python3 sku-db/seed.py
 
+test-mcp: seed
+	@echo "Running MCP tests..."
+	cd sku-db && uv run pytest ../tests/test_mcp_server.py
 test: seed
 	@echo "Running tests..."
 	bash tests/test_scaffold_live_api.sh
