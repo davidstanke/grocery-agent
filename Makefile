@@ -12,6 +12,7 @@ test:
 	@echo "Running tests..."
 	bash tests/test_scaffold_live_api.sh
 	bash tests/test_agentfarm_cleanup.sh
+	python3 -m pytest tests/test_sku_db.py
 
 lint:
 	@echo "Running linter..."
