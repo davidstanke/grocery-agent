@@ -4,6 +4,8 @@ import logging
 import sys
 import os
 from mcp.server.fastmcp import FastMCP
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Configure logging to stderr
@@ -88,12 +90,32 @@ async def get_toolspec(request):
     }
     return JSONResponse(content=data)
 
+# Create the parent FastAPI application
+app = FastAPI(title="SKU DB MCP Server")
+
+# Add CORS middleware for public accessibility
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Health check endpoint
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+# Mount the MCP SSE application at /mcp
+app.mount("/mcp", mcp.sse_app())
+
 if __name__ == "__main__":
     if os.environ.get("MCP_TRANSPORT") == "sse":
         import uvicorn
         port = int(os.environ.get("PORT", "8080"))
-        logger.info(f"Starting MCP SSE server on port {port}")
-        uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=port)
+        logger.info(f"Starting MCP SSE server on port {port} at /mcp")
+        uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         # Ensure standard output strictly reserved for MCP protocol
         mcp.run(transport='stdio')
