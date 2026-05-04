@@ -10,3 +10,8 @@ dependencies = [
     "pytest>=9.0.3",
     "uvicorn>=0.46.0",
 ]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true

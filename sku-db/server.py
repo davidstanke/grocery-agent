@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 from mcp.server.fastmcp import FastMCP
+from fastapi.responses import JSONResponse
 
 # Configure logging to stderr
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -70,6 +71,22 @@ def query_products_by_price(min_price: float = 0.0, max_price: float = None) -> 
     except Exception as e:
         logger.error(f"Error in query_products_by_price: {e}")
         return json.dumps([])
+
+@mcp.custom_route("/toolspec.json", methods=["GET","POST"])
+async def get_toolspec(request):
+    """Expose tool definitions in the format expected by Gemini Enterprise Agent Platform."""
+    tools = await mcp.list_tools()
+    data = {
+        "tools": [
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.inputSchema,
+            }
+            for tool in tools
+        ]
+    }
+    return JSONResponse(content=data)
 
 if __name__ == "__main__":
     if os.environ.get("MCP_TRANSPORT") == "sse":
