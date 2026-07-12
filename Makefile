@@ -2,11 +2,13 @@
 
 install:
 	@echo "Installing dependencies..."
-	@# Add installation commands here
+	cd sku-db && uv sync
+	cd agents/live-api-agent && uv sync || true
+	cd agents/sku-chat-agent && uv sync || true
 
 dev:
 	@echo "Starting development environment..."
-	@# Add dev commands here
+	@echo "Hint: run specific components via their respective directories (e.g. sku-db or agents/)"
 
 seed:
 	@echo "Seeding SKU database..."
@@ -15,6 +17,7 @@ seed:
 test-mcp: seed
 	@echo "Running MCP tests..."
 	cd sku-db && uv run pytest ../tests/test_mcp_server.py
+
 test: seed
 	@echo "Running tests..."
 	bash tests/test_scaffold_live_api.sh
@@ -23,4 +26,4 @@ test: seed
 
 lint:
 	@echo "Running linter..."
-	@# Add lint commands here
+	cd agents/sku-chat-agent && uv run ruff check . || echo "Ruff not found or failed in sku-chat-agent"
