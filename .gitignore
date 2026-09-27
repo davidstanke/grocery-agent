@@ -221,3 +221,7 @@ __marimo__/
 
 # Agent Farm (agent orchestrator)
 .agentfarm/
+# Security and Temp files
+gha-creds-*.json
+*.bak
+*.db
